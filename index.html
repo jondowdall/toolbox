@@ -1,0 +1,89 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Toolbox</title>
+
+    <link href="style.css" rel="stylesheet" title="Default Style">
+    <script>
+        const InitialGlobals = Object.keys(window);
+    </script>
+
+    <script src="/lib/zip/zip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js" integrity="sha512-GZ1RIgZaSc8rnco/8CXfRdCpDxRCphenIiZ2ztLy3XQfCbQUSCuk8IudvNHxkRA3oUg6q0qejgN/qqyG1duv5Q==" crossorigin="anonymous"></script>
+    <script type="module" src="main.mjs" async></script>
+</head>
+
+<body>
+    <template id="tab-widget-template">
+        <div class="tab-widget">
+            <div class="tab-bar"></div>
+            <div class="tab-page"></div>
+        </div>
+    </template>
+
+    <template id="widget-template">
+        <div class="widget-frame">
+            <div class="widget-border"></div>
+            <div class="widget-title">
+                Test Widget
+            </div>
+            <div class="widget-box">
+                <div class="widget-content"></div>
+            </div>
+            <div class="resize resize-top-left"></div>
+            <div class="resize resize-top"></div>
+            <div class="resize resize-top-right"></div>
+            <div class="resize resize-right"></div>
+            <div class="resize resize-bottom-right"></div>
+            <div class="resize resize-bottom"></div>
+            <div class="resize resize-bottom-left"></div>
+            <div class="resize resize-left"></div>
+        </div>
+    </template>
+
+    <template id="workspace-template">
+        <div class="workspace">
+            <div class="workspace-controls">
+                <button class="save">&#x1f4be;</button>
+                <label class="selection-mode-label">Selection Mode: </label>
+                <select class="selection-mode">
+                    <option value="single">Single Widget</option>
+                    <option value="connected">Connected Widgets</option>
+                    <option value="network">Network</option>
+                    <option value="adjacent">Adjacent Widgets</option>
+                </select>
+                <label class="snap-mode-label">Snap Mode: </label>
+                <select class="snap-mode">
+                    <option value="none">None</option>
+                    <option value="grid">Grid</option>
+                    <option value="widgets">Widgets</option>
+                    <option value="all">All</option>
+                </select>
+                <label>Show Widget Titles: </label>
+                <input class="hide-titles-control" type="checkbox"/>
+            </div>
+            <div class="workspace-nav-bar">
+                <ul class="widget-types"></ul>
+                <ul class="widget-list"></ul>
+            </div>
+            <div class="workspace-content"></div>
+        </div>
+    </template>
+
+    <!--div id="left-slideout">
+    </div-->
+    <div id="debug"></div>
+    <div id="layout">
+        <div id="main"></div>
+        <div id="footer">Status stuff</div>
+    </div>
+    <div id="right-slideout">
+        <div id="globals"></div>
+    </div>
+    <svg id="svg-overlay"></svg>
+    <div id="text-overlay" class="fade" unselectable="on"></div>
+    </div>
+</body>
+
+</html>
