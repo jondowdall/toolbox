@@ -1391,19 +1391,69 @@ class CommandWindow extends Widget {
             ['&#x239A', () => content.innerHTML = ''],
             ['&#x1f4be;', () => this.download('output.txt', content.innerText)]
         ]);
-        this.addItem();
+        this.current = document.createElement('input');
+        this.content.appendChild(this.current);
+        this.current.classList.add('command-item');
+        this.current.focus();
+        this.current.addEventListener('keyup', (event) => this.handleKey(event));
+        this.recallIndex = 0;
+        this.recall = [];
     }
     addItem(content) {
         const item = {
             timestamp: new Date(),
             content,
-        }
-        const node = document.createElement('input');
-        this.content.appendChild(node);
-        node.classList.add('command-item');
-        node.focus();
-
+        };
+        const node = document.createElement('div');
+        this.content.insertBefore(node, this.current);
+        node.innerHTML = content;
+        node.classList.add('command-history');
+        const commandNumber = document.createElement('div');
+        node.appendChild(commandNumber);
+        commandNumber.classList.add('command-number');
+        commandNumber.innerHTML = this.commands.length;
         this.commands.push(item);
+    }
+    handleKey(event) {
+        if (event.key === 'Enter') {
+            this.processCommand();
+        }
+        if (event.key === 'ArrowUp') {
+            if (this.recallIndex) {
+                const index = this.commands.length - this.recallIndex;
+                this.recall.unshift(this.commands[index]);
+                this.recallIndex += 1;
+            }
+            if (this.recallIndex === this.commands.length - 1) {
+                this.recallIndex = 0;
+                this.recall = [];
+                this.current.value = this.commands[this.recallIndex].content;
+            } else {
+                const index = this.commands.length - this.recallIndex;
+                this.current.value = this.commands[index].content;
+            }
+        }
+        if (event.key === 'ArrowDown') {
+            if (this.recallIndex < this.commands.length - 1) {
+                this.recallIndex += 1;
+                this.current.value = this.recall.shift().content;
+            } else {
+                this.current.value = '';
+            }
+        }
+
+    }
+    processCommand() {
+        if (this.recallIndex < this.commands.length) {
+            this.recall.shift();
+        }
+        this.addItem(this.current.value);
+        this.recallIndex = this.commands.length;
+        if (this.recall.length > 0) {
+            this.current.value = this.recall.shift().content;
+        } else {
+            this.current.value = '';
+        }
     }
     download(filename, data) {
         const blob = new Blob([data], { type: 'text/plain' });
@@ -1751,9 +1801,12 @@ class Workspace {
                 y: event.clientY,
             });
         this.container.addEventListener('dblclick', (event) => {
-            const position = { x: event.clientX, y: event.clientY };
-            this.addWidget(CommandWindow, { position });
-        })
+            if (event.target === this.container) {
+                const position = { x: event.clientX, y: event.clientY };
+                this.addWidget(CommandWindow, { position });
+            }
+        });
+        this.container.addEventListener('keypress', (event) => this.keypress(event));
         if (state) {
             this.loadState(state);
         }
@@ -1788,6 +1841,13 @@ class Workspace {
                 input.source = output;
             });
         });
+    }
+    keypress(event) {
+        if (event.target === this.container) {
+            if (event.key.length === 1) {
+                this.addWidget(CommandWindow, { position: this.cursor });
+            }
+        }
     }
     addItem(list, widget) {
         const item = document.createElement('li');

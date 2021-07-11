@@ -17,6 +17,11 @@ html {
 body {
     margin: 0;
     font-family: sans-serif;
+    font-size: 11pt;
+}
+
+input {
+    font-size: 11pt;
 }
 
 span:focus {
@@ -141,7 +146,7 @@ canvas {
 #main {
     background: pink;
     width: 100vw;
-    height: 100vw;
+    height: 100vh;
 }
 
 .tab-widget {
@@ -489,6 +494,25 @@ li {
 .output-port {
     left: 0;
     transform: translate(50%, -50%);
+}
+
+.command-history {
+    position: relative;
+    border-bottom: 1px solid lightgray;
+}
+
+.command-number {
+    position: absolute;
+    right: 0;
+    top: 0;
+    padding: 0.1em;
+    font-size: 75%;
+    border: 1px solid gray;
+    border-radius: 1000px;
+    width: 1.5em;
+    height: 1.5em;
+    text-align: center;
+    color: gray;
 }
 
 .show .widget-output-label,
