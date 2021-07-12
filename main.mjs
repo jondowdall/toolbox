@@ -1160,6 +1160,482 @@ class TextFileView extends Widget {
     }
 }
 
+class TableWindow extends Widget {
+    static type = 'Table';
+    constructor(options = {}) {
+        super(TableWindow.type, options);
+        const content = this.docElement.querySelector('.widget-content');
+
+        this.table = document.createElement('table');
+        content.appendChild(this.table);
+
+        this.table.classList.add('table');
+        this.head = document.createElement('thead');
+        this.table.appendChild(this.head);
+        this.body = document.createElement('tbody');
+        this.table.appendChild(this.body);
+
+        if (options.content) {
+            this.rows = options.content.rows;
+            this.columns = options.content.columns;
+            this.values = options.content.values;
+        } else {
+            this.values = [
+                ['', '', '', '', ''],
+                ['', '', '', '', ''],
+                ['', '', '', '', ''],
+                ['', '', '', '', ''],
+            ];
+            this.rows = new Array(this.values.length);
+            this.columns = new Array(Math.max(...this.values.map((column) => column.length)));
+        }
+
+        this.render();
+        this.addButtons([
+            ['&#x1f4be;', (event) => save('code.js', content.innerText)]]);
+
+        this.docElement.tabIndex = 1;
+
+        this.addInput('Source');
+        this.showInputs();
+
+        this.addOutput('Table', () => this.values || [[]]);
+    }
+    render() {
+        /**
+         * Convert a column number into a excel like column name.
+         *
+         * @param columnNumber 
+         * @returns column name as string
+         */
+        function columnName(columnNumber) {
+            let c = columnNumber;
+            let codes = [];
+            codes.unshift(65 + c % 26);
+            c = Math.floor(c / 26);
+            while (c > 0) {
+                c -= 1;
+                codes.unshift(65 + c % 26);
+                c = Math.floor(c / 26);
+            }
+            return String.fromCharCode(...codes);
+        }
+
+        this.head.innerHTML = '';
+        this.body.innerHTML = '';
+        let row = document.createElement('tr');
+        this.head.appendChild(row);
+        row.classList.add('table-header');
+        row.innerHTML = '<th style="position:sticky;top:0;left:0;z-index:1;"></th>'
+        for (let c = 0; c < this.columns.length; ++c) {
+            const cell = document.createElement('th');
+            row.appendChild(cell);
+            cell.innerHTML = this.columns[c] || columnName(c);
+            cell.classList.add('stick-top');
+        }
+        let cell = document.createElement('th');
+        row.appendChild(cell);
+        cell.innerHTML = '+';
+        cell.addEventListener('click', (event) => this.addColumn());
+        cell.classList.add('stick-top');
+        for (let r = 0; r < this.rows.length; ++r) {
+            let row = document.createElement('tr');
+            this.body.appendChild(row);
+            const cell = document.createElement('th');
+            row.appendChild(cell);
+            cell.innerHTML = this.rows[r] || r;
+            cell.classList.add('stick-left');
+            for (let c = 0; c < this.columns.length; ++c) {
+                const cell = document.createElement('td');
+                row.appendChild(cell);
+                cell.innerHTML = this.values[r][c] || '';
+            }
+        }
+        row = document.createElement('tr');
+        this.body.appendChild(row);
+        row.classList.add('table-header');
+        cell = document.createElement('th');
+        row.appendChild(cell);
+        cell.innerHTML = '+';
+        cell.classList.add('stick-left');
+        cell.addEventListener('click', (event) => this.addRow());
+    }
+    addRow() {
+        this.values.push(new Array(this.columns));
+        this.rows.push(undefined);
+        this.render();
+    }
+    addColumn() {
+        this.values.forEach((row) => row.push(''));
+        this.columns.push(undefined);
+        this.render();
+    }
+    updater() {
+        return async () => {
+            if (this.inputs[0].source) {
+                const data = await this.inputs[0].source.get();
+                if (data) {
+                    const columns = new Set();
+                    data.forEach(
+                        (obj) => Object.keys(obj).forEach(
+                            (key) => columns.add(key)));
+                    this.columns = Array.from(columns);
+                    this.values.length = 0;
+                    data.forEach((obj) => {
+                        const row = [];
+                        for (const column of columns) {
+                            row.push(obj[column]);
+                        }
+                        this.values.push(row);
+                    });
+                    this.rows = new Array(data.length);
+                }
+                this.render();
+            }
+        }
+    }
+    save() {
+        const state = Object.assign(super.state, {
+            type: TableWindow.type,
+            superState: super.state,
+            name: this.name,
+            content: {
+                rows: this.rows,
+                columns: this.columns,
+                values: this.values,
+            },
+        });
+        Ajax.put(`/toolbox/widgets/${this.uuid}.json`, JSON.stringify(state));
+    }
+}
+
+
+function makeLink() {
+    const associations = [];
+    return {
+        add(item, node) {
+            associations.push({ item, node });
+        },
+        clear() {
+            associations.length = 0;
+        },
+        findPair(item, node) {
+            return associations.find(association => association.item === item && association.node === node);
+        },
+        findItems(node) {
+            return associations.filter(association => association.node === node)
+                .map(association => association.item);
+        },
+        findNodes(item) {
+            return associations.filter(association => association.item === item)
+                .map(association => association.node);
+        },
+        items() {
+            return associations.map(association => association.item);
+        },
+        nodes() {
+            return associations.map(association => association.node);
+        }
+    }
+}
+
+class TreeView extends Widget {
+    static type = 'Tree View';
+    constructor(options = {}) {
+        super(TreeView.type, options);
+        this.data = {};
+        this.format = {};
+
+        this.container = this.docElement.querySelector('.widget-content');
+        this.container.classList.add('tree-view');
+        this.render();
+
+        if (options.content) {
+            this.data = options.content;
+            this.update();
+        }
+
+        this.addButtons([
+            ['-', (event) => this.collapseAll()],
+            ['&#x25B6', (event) => this.run(event)],
+            ['&#x1f4be;', (event) => save('code.js', content.innerText)]]);
+
+        this.docElement.tabIndex = 1;
+
+        this.addInput('Data', async () => {
+            this.data = await this.inputs[0].source.get();
+            this.update();
+        });
+        this.addInput('Format', async () => {
+            this.format = await this.inputs[1].source.get();
+            this.update();
+        });
+        this.showInputs();
+
+        this.addOutput('Data', () => this.inputs[0].source.get());
+    }
+    render() {
+        const selection = [];
+        this.map = makeLink();
+
+        const searchBox = document.createElement('input');
+        this.container.appendChild(searchBox);
+        searchBox.classList.add('tree-search');
+        searchBox.type = 'text';
+        searchBox.placeholder = 'Search';
+        searchBox.addEventListener('change', event => {
+            const str = searchBox.value;
+            // Find my id
+            let matched = this.map.items().filter(item => item.id === str);
+
+            // Find by title
+            if (matched.length === 0 && this.format.title) {
+                matched = this.map.items().filter(item => this.format.title(item) === str);
+            }
+
+            // Find by uuid
+            if (matched.length === 0) {
+                matched = this.map.items().filter(item => item.uuid === str);
+            }
+
+            // Find by regular expression
+            if (matched.length === 0) {
+                const searchPattern = new RegExp(searchBox.value, 'i');
+                matched = this.map.items().filter(item => searchPattern.test(this.format.title(item)));
+            }
+            matched.forEach((item) => show(item));
+        });
+        const selectMatches = document.createElement('button');
+        this.container.appendChild(selectMatches);
+        selectMatches.innerHTML = 'Select';
+        selectMatches.addEventListener('click', event => {
+            if (!event.ctrlKey) {
+                selection.forEach(item => deselect(item));
+                selection.length = 0;
+            }
+            const searchPattern = new RegExp(searchBox.value, 'i');
+            const matched = this.map.items().filter(item => searchPattern.test(this.format.title(item)));
+            matched.forEach(item => select(item));
+        });
+
+        this.branches = document.createElement('div');
+        this.container.appendChild(this.branches);
+        this.branches.classList.add('branches');
+    }
+
+    update() {
+        // Clear the existing tree.
+        this.branches.innerHTML = '';
+        this.map.clear();
+        if (this.data) {
+            this.data.forEach((item) => this.branches.appendChild(this.addBranch(item, this.format.path)));
+        }
+    }
+
+    collapseAll() {
+    }
+
+    /**
+     * 
+     * @param item 
+     */
+    select(item) {
+        if (!selection.includes(item)) {
+            selection.unshift(item);
+        }
+        const nodes = this.map.findNodes(item);
+        nodes.forEach(node => {
+            const title = node.querySelector('.title');
+            title.classList.add('selected');
+        });
+    }
+
+    /**
+     * 
+     * @param item 
+     */
+    deselect(item) {
+        const pos = selection.indexOf(item);
+        if (pos > -1) {
+            selection.splice(pos, 1);
+        }
+        const nodes = this.map.findNodes(item);
+        nodes.forEach(node => {
+            const title = node.querySelector('.title');
+            title.classList.remove('selected');
+        });
+    }
+
+    /**
+     * 
+     * @param item 
+     * @param recursively 
+     */
+    expand(item, recursively) {
+        const nodes = this.map.findNodes(item);
+        nodes.forEach(node => {
+            const expander = node.querySelector('.expander');
+            if (expander) {
+                expander.innerHTML = '&#9661; ';
+            }
+            const content = node.querySelector('.content');
+            content.classList.remove('hidden');
+        });
+
+        if (recursively) {
+            item.children.forEach(item => expand(item, true));
+        }
+    }
+
+    /**
+     * 
+     * @param item 
+     * @param recursively 
+     */
+    collapse(item, recursively) {
+        const nodes = this.map.findNodes(item);
+        nodes.forEach(node => {
+            const expander = node.querySelector('.expander');
+            if (expander) {
+                expander.innerHTML = '&#9655; ';
+            }
+            const content = node.querySelector('.content');
+            content.classList.add('hidden');
+        });
+
+        if (recursively) {
+            item.children.forEach(item => collapse(item, true));
+        }
+    }
+
+    /**
+     * 
+     * @param item 
+     */
+    show(item) {
+        expand(item, false);
+        let parent = item.parent;
+        while (parent) {
+            expand(parent);
+            parent = parent.parent;
+        }
+    }
+
+    setRoot(item) {
+        // Clear the existing tree.
+        const branches = container.getElementsByClassName('branches')[0];
+        branches.innerHTML = '';
+        this.map.clear();
+        this.branches.appendChild(this.addBranch(item));
+    }
+
+    addBranch(item, path) {
+        const container = document.createElement('div');
+        container.classList.add('branch');
+        if (0 && map.findNodes(item).length > 0) {
+            console.log(`Circularity processing item: ${item.title}`);
+            return container;
+        }
+        this.map.add(item, container);
+        const expander = document.createElement('span');
+        container.appendChild(expander);
+        const title = document.createElement('span');
+        container.appendChild(title);
+        title.classList.add('title');
+        title.draggable = true;
+
+        if (this.format.class) {
+            title.classList.add(this.format.class(item));
+        }
+        if (this.format.title) {
+            title.innerHTML = this.format.title(item);
+        } else {
+            title.innerHTML = item.name || item.title || item.description || item;
+        }
+        if (this.format.tip) {
+            title.title = this.format.tip(item)
+        }
+
+        title.addEventListener('click', event => {
+            if (!event.ctrlKey) {
+                selection.forEach(item => deselect(item));
+                selection.length = 0;
+            }
+            if (selection.includes(item)) {
+                this.deselect(item);
+            } else {
+                this.select(item);
+                //location.hash = `#wp=${item.id}`;
+                // showActivity(item);
+            }
+        });
+        title.addEventListener('dblclick', event => {
+            event.preventDefault();
+            if (event.ctrlKey) {
+                this.setRoot(item);
+            } else {
+                //App.diagram.showActivity(item);
+            }
+        });
+        title.addEventListener('dragstart', event => {
+            //event.dataTransfer.setData('text/plain', activity.id);
+            event.dataTransfer.setData('uuid', item.uuid);
+        });
+
+        const content = document.createElement('div');
+        container.appendChild(content);
+        content.classList.add('content');
+
+        let children = [];
+        if (path) {
+            const childElement = path.shift();
+            children = item[childElement] || [];
+        } else {
+            children = item.children || [];
+        }
+
+        if (children.length > 0) {
+            expander.classList.add('expander');
+            expander.innerHTML = '&#9661; ';
+            expander.addEventListener('click', event => {
+                if (content.classList.contains('hidden')) {
+                    this.expand(item, event.ctrlKey);
+                } else {
+                    this.collapse(item, event.ctrlKey);
+                }
+            });
+        } else {
+            expander.classList.add('leaf');
+            expander.innerHTML = ' ';
+        }
+
+        children.forEach((child) => content.appendChild(this.addBranch(child)));
+
+        const indicators = container.getElementsByClassName('expander');
+        const childContent = container.getElementsByClassName('content');
+        for (let i = 0; i < indicators.length; ++i) {
+            indicators[i].innerHTML = '&#9655; ';
+        }
+        for (let i = 0; i < childContent.length; ++i) {
+            childContent[i].classList.add('hidden');
+        }
+        return container;
+    }
+
+
+    save() {
+        const state = Object.assign(super.state, {
+            type: TreeView.type,
+            superState: super.state,
+            name: this.name,
+            content: this.data,
+            format: this.format,
+        });
+        Ajax.put(`/toolbox/widgets/${this.uuid}.json`, JSON.stringify(state));
+    }
+}
+
+
 class HtmlWindow extends Widget {
     static type = 'HTML';
     constructor(options = {}) {
