@@ -14,9 +14,15 @@ html {
     box-sizing: inherit;
 }
 
+@font-face {
+    font-family: 'topaz';
+    src: url('/fonts/topaznew.ttf');
+}
+
 body {
     margin: 0;
-    font-family: sans-serif;
+    /*font-family: sans-serif;*/
+    font-family: 'topaz';
     font-size: 11pt;
 }
 
